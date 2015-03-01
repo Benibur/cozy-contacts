@@ -1,32 +1,61 @@
-Modal = require 'cozy-clearance/modal'
-Photo = require '../models/photo'
+Modal    = require 'cozy-clearance/modal'
+Photo    = require '../models/photo'
+template = require('../templates/photo_browser')()
 
+module.exports = class PhotoPickerCroper extends Modal
 
-module.exports = class FilesBrowser extends Modal
-
-    id: 'files-browser-modal'
-    template_content: require '../templates/photo_browser'
-    title: t 'pick from files'
-    content: '<p>Loading ...</p>'
-    photoContainer:null # the div containing photos
-    nextPrevContainer: null
-    singleSelection:true # tells if user can select one or more photo
-    currentStep:1
+    id                : 'photo-picker-croper'
+    title             : t 'pick from files'
+    thumbsContainer   : null # the div containing photos
+    singleSelection   : true # tells if user can select one or more photo
+    currentStep       : 'photoPicker' # 2 states : 'croper' & 'photoPicker'
+    page       : 0  # highest page requested to the server.
+    selected   : {} # selected.photoID = thumb = {id,name,thumbEl}
+    selected_n : 0  # number of photos selected
+    dates      : "Waiting for photo"
+    percent    : 0     # percent of thumbnails computation avancement (if any)
+    hasNext    : false # tells if there are more photo to fetch from the server
 
 
     events: -> _.extend super,
-        'click    .photoContainer' : 'validateClick'
-        'dblclick .photoContainer' : 'validateDblClick'
-        'click    a.next'          : 'displayMore'
-        'click    a.prev'          : 'displayPrevPage'
-        'click   .chooseAgain'     : 'chooseAgain'
+        'click    .thumbsContainer' : 'validateClick'
+        'dblclick .thumbsContainer' : 'validateDblClick'
+        'click    a.next'           : 'displayMore'
+        'click    a.prev'           : 'displayPrevPage'
+        'click    .chooseAgain'     : 'chooseAgain'
+
+
+    initialize: (cb) ->
+        @cb  = cb               #will be called
+        @yes = t 'modal ok'
+        @no  = t 'modal cancel'
+        super({})
+        @body              = @el.querySelector('.modal-body')
+        body               = @body
+        body.innerHTML     = template
+        @photoContainer    = body.querySelector('.photoContainer')
+        @thumbsContainer   = body.querySelector('.thumbsContainer')
+        @croppingEl        = @el.querySelector('.cropping')
+        @imgToCrop         = @croppingEl.querySelector('#img-to-crop')
+        @imgPreview        = @croppingEl.querySelector('#img-preview')
+        @nextBtn           = body.querySelector('.next')
+        @target_h          = 100 # height of the img-preview div
+        @target_w          = 100 # width  of the img-preview div
+        @img_naturalW      = 0   # number of pixels of the file selected
+        @img_naturalH      = 0   # number of pixels of the file selected
+
+        body.classList.add('photoPickerCroper')
+        @imgToCrop.addEventListener('load', @onImgToCropLoaded, false)
+        @croppingEl.style.display = 'none'  #hide the croping area
+        @addPage(0)
+        return true
 
 
     validateDblClick:(e)->
         if e.target.nodeName != "IMG"
             return
         if @singleSelection
-            if typeof @state.selected[e.target.id] != 'object'
+            if typeof @.selected[e.target.id] != 'object'
                 @toggleClicked(e.target)
             @showCropingTool()
         else
@@ -48,18 +77,18 @@ module.exports = class FilesBrowser extends Modal
                 return
             @toggleOne(el, id)
             # unselect other thumbs
-            for i, thumb of @state.selected # thumb = {id,name,thumbEl}
+            for i, thumb of @.selected # thumb = {id,name,thumbEl}
                 if i != id
                     if typeof(thumb) == 'object' # means thumb is selected
                         $(thumb.el).removeClass('selected')
-                        @state.selected[i] = false
-                        @state.selected_n -=1
+                        @.selected[i] = false
+                        @.selected_n -=1
         else
             @toggleOne(el, id)
 
 
     selectFirstThumb:()->
-        @toggleClicked(@photoContainer.firstChild)
+        @toggleClicked(@thumbsContainer.firstChild)
 
 
     selectNextThumb: ()->
@@ -113,25 +142,25 @@ module.exports = class FilesBrowser extends Modal
 
 
     toggleOne: (thumbEl, id) ->
-        if typeof(@state.selected[id]) == 'object'
+        if typeof(@.selected[id]) == 'object'
             $(thumbEl).removeClass('selected')
-            @state.selected[id] = false
-            @state.selected_n -=1
+            @.selected[id] = false
+            @.selected_n -=1
         else
             $(thumbEl).addClass('selected')
-            @state.selected[id] = {id:id,name:"",el:thumbEl}
-            @state.selected_n +=1
+            @.selected[id] = {id:id,name:"",el:thumbEl}
+            @.selected_n +=1
 
 
     getSelectedID : () ->
-        for k, val of @state.selected
+        for k, val of @.selected
             if typeof(val)=='object'
                 return k
         return null
 
 
     getSelectedThumb : () ->
-        for k, val of @state.selected
+        for k, val of @.selected
             if typeof(val)=='object'
                 return val.el
         return null
@@ -139,79 +168,59 @@ module.exports = class FilesBrowser extends Modal
 
     # supercharge the modal behavour : "ok" leads to the cropping step
     onYes: ()->
-        if @currentStep == 1
-            if @state.selected_n == 1
+        if @currentStep == 'photoPicker'
+            if @.selected_n == 1
                 @showCropingTool()
             else
                 return false
         else
-            super()
+            s = @imgPreview.style
+            r = @img_naturalW / @imgPreview.width
+            d =
+                sx      : Math.round(- parseInt(s.marginLeft)*r)
+                sy      : Math.round(- parseInt(s.marginTop )*r)
+                sWidth  : Math.round(@target_h*r)
+                sHeight : Math.round(@target_w*r)
+            @close()
+            @cb(true,@imgPreview, d)
 
 
     closeOnEscape: (e)->
-        # the modal class methog listening to keystrokes
+        # TODO : the modal class methog listening to keystrokes
         # should be named "onKeyStroke"
-        if @currentStep == 2
-            if e.which is 27 # escape
+        if @currentStep == 'croper'
+            if e.which is 27 # escape key => choose another photo
                 e.stopPropagation()
                 @chooseAgain()
-            else if e.which == 13 # return
+            else if e.which == 13 # return key => validate modal
                 e.stopPropagation()
                 @onYes()
                 return
             else
                 return
-        else # @currentStep == 1
+        else # @currentStep == 'croper'
             switch e.which
-                when 27 # escape
+                when 27 # escape key
                     return super(e)
-                when 13 # return
+                when 13 # return key
                     e.stopPropagation()
                     @onYes()
                     return
-                when 39 # right
+                when 39 # right key
                     e.stopPropagation()
                     @selectNextThumb()
-                when 37 # left
+                when 37 # left key
                     e.stopPropagation()
                     @selectPreviousThumb()
-                when 38 # up
+                when 38 # up key
                     e.stopPropagation()
                     @selectThumbUp()
-                when 40 # down
+                when 40 # down key
                     e.stopPropagation()
                     @selectThumbDown()
                 else
                     return
         return
-
-
-    initialize: (state) ->
-        @yes = t 'modal ok'
-        @no  = t 'modal cancel'
-        super({})
-        @state=
-            page       : 0
-            selected   : {}
-            selected_n : 0
-            dates      : "Waiting for photo"
-            percent    : 0
-            hasNext    : false
-            hasPrev    : false
-        @body              = @el.querySelector('.modal-body')
-        body               = @body
-        body.innerHTML     = @template_content()
-        @photoContainer    = body.querySelector('.photoContainer')
-        @nextPrevContainer = body.querySelector('.nextPrevContainer')
-        @croppingEl        = @el.querySelector('.cropping')
-        @imgToCrop         = @croppingEl.querySelector('#img-to-crop')
-        @nextBtn           = body.querySelector('.next')
-
-        body.classList.add('photoBrowser')
-        @imgToCrop.addEventListener('load', @onImgToCropLoaded, false)
-        @croppingEl.style.display = 'none'  #hide the croping area
-        @addPage(0)
-        return true
 
 
     addPage:(page)->
@@ -227,23 +236,22 @@ module.exports = class FilesBrowser extends Modal
 
         # If server is creating thumbs : then wait before to display files.
         else if body.percent?
-            @state.dates   = "Thumb creation"
-            @state.percent = body.percent
+            @.dates   = "Thumb creation"
+            @.percent = body.percent
             pathToSocketIO = \
                 "#{window.location.pathname.substring(1)}socket.io"
             socket = io.connect window.location.origin,
                 resource: pathToSocketIO
             socket.on 'progress', (event) =>
-                @state.percent = event.percent
-                if @state.percent is 100
-                    @initialize state
+                @.percent = event.percent
+                if @.percent is 100
+                    # TODO
                 else
-                    template = @template_content @getRenderData()
-                    @$('.modal-body').html template
+                    # TODO
 
         # If there is no photos in Cozy
         else if files? and Object.keys(files).length is 0
-            @photoContainer.innerHTML = "<p>#{t 'no image'}</p>"
+            @thumbsContainer.innerHTML = "<p>#{t 'no image'}</p>"
 
         # there are some images, add thumbs to modal
         else
@@ -254,12 +262,6 @@ module.exports = class FilesBrowser extends Modal
             @addThumbs(body.files, hasNext)
             if @singleSelection
                 @selectFirstThumb()
-
-        # Add selected files
-        # if @state.selected[@state.page]?
-        for id, val of @state.selected
-            if typeof(val) == 'object'
-                @$("##{id}").addClass 'selected'
 
 
     addThumbs : (files, hasNext) ->
@@ -279,48 +281,25 @@ module.exports = class FilesBrowser extends Modal
                 img.id    = "#{p.id}"
                 img.title = "#{p.name}"
                 frag.appendChild(img)
-        @photoContainer.appendChild(frag)
-
-
-    cb: (confirmed) ->
-        return unless confirmed
-        fileID = @getSelectedID()
-        attrs =
-            x:0
-            y:0
-            w:50
-            h:80
-            resizedW:100
-            resizedH:150
-        Photo.cropResizeFromFile(fileID, attrs)
-
-
-        # @state.beforeUpload (attrs) =>
-        #     tmp = []
-        #     # @state.selected[@state.page] = @$('.selected')
-        #     for page in @state.selected
-        #         for img in page
-        #             fileid = img.id
-
-        #             # Create a temporary photo
-        #             attrs.title = img.name
-        #             phototmp = new Photo attrs
-        #             phototmp.file = img
-        #             tmp.push phototmp
-        #             @collection.add phototmp
-
-        #             Photo.makeFromFile fileid, attrs, (err, photo) =>
-        #                 return console.log err if err
-        #                 # Replace temporary photo
-        #                 phototmp = tmp.pop()
-        #                 @collection.remove phototmp, parse: true
-        #                 @collection.add photo, parse: true # bja : remise à jour
+        @thumbsContainer.appendChild(frag)
 
 
     displayMore: ->
         # Display next page of photo
-        @state.page +=  1
-        @addPage(@state.page)
+        @.page +=  1
+        @addPage(@.page)
+
+
+    showCropingTool:->
+        @currentStep = 'croper'
+        @currentPhotoScroll = @body.scrollTop
+
+        @photoContainer.style.display = 'none'
+        @croppingEl.style.display = ''
+
+        screenUrl       = "files/screens/#{@getSelectedID()}.jpg"
+        @imgToCrop.src  = screenUrl
+        @imgPreview.src = screenUrl
 
 
     onImgToCropLoaded: ()=>
@@ -328,7 +307,9 @@ module.exports = class FilesBrowser extends Modal
         img_h  = @imgToCrop.height
         @img_w = img_w
         @img_h = img_h
-        selection_w    = Math.round(Math.min(img_h,img_w)*1)
+        @img_naturalW = @imgToCrop.naturalWidth
+        @img_naturalH = @imgToCrop.naturalHeight
+        selection_w   = Math.round(Math.min(img_h,img_w)*1)
         x = Math.round( (img_w-selection_w)/2 )
         y = Math.round( (img_h-selection_w)/2 )
         options =
@@ -342,48 +323,27 @@ module.exports = class FilesBrowser extends Modal
         )
 
 
-    showCropingTool:->
-        @currentStep = 2
-        @currentPhotoScroll = @body.scrollTop
-        croppingEl = @croppingEl
-
-        @photoContainer.style.display = 'none'
-        @nextPrevContainer.style.display = 'none'
-        croppingEl.style.display = ''
-        screenUrl = "files/screens/#{@getSelectedID()}.jpg"
-        @imgToCrop.src = screenUrl
-        croppingEl.querySelector('#img-preview').src= screenUrl
-
-
     updatePreview: (coords) =>
-        target_h = 100 # height of the img-preview
-        target_w = 100
-        # todo BJA :
-        # récupérer la largeur réelle de l'image affichée qui peut varier (fichier petit ou paysage ou portrait...)
-        # ATTENTION il faut récupérer la dimention AFFICHEE, c'est à dire le nbr de px à l'écran, pas le nbr de px dans le fichier d'origine)
+        prev_w = @img_w / coords.w * @target_w
+        prev_h = @img_h / coords.h * @target_h
+        prev_x = @target_w  / coords.w * coords.x
+        prev_y = @target_h / coords.h * coords.y
 
-        prev_w = @img_w / coords.w * target_w
-        prev_h = @img_h / coords.h * target_h
-        prev_x = target_w / coords.w  * coords.x
-        prev_y = target_h / coords.h * coords.y
-
-        $('#img-preview').css(
-            width      : Math.round(prev_w ) + 'px',
-            height     : Math.round(prev_h ) + 'px',
-            marginLeft : '-' + Math.round(prev_x) + 'px',
-            marginTop  : '-' + Math.round(prev_y ) + 'px'
-        )
+        s            = @imgPreview.style
+        s.width      = Math.round(prev_w) + 'px'
+        s.height     = Math.round(prev_h) + 'px'
+        s.marginLeft = '-' + Math.round(prev_x) + 'px'
+        s.marginTop  = '-' + Math.round(prev_y) + 'px'
         return true
 
 
     chooseAgain : ()->
-        @currentStep = 1
+        @currentStep = 'photoPicker'
         @jcrop_api.destroy()
         @imgToCrop.removeAttribute('style')
         @imgToCrop.src = ''
         croppingEl = @el.querySelector('.cropping')
         @photoContainer.style.display = ''
-        @nextPrevContainer.style.display = ''
         croppingEl.style.display = 'none'
         @body.scrollTop = @currentPhotoScroll
 

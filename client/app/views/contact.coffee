@@ -13,37 +13,37 @@ module.exports = class ContactView extends ViewCollection
     itemView: require 'views/datapoint'
 
     events: ->
-        'click #picture'    : 'choosePhoto'
-        'click .addbirthday': @addClicked 'about', 'birthday'
-        'click .addorg'     : @addClicked 'about', 'company'
-        'click .addtitle'   : @addClicked 'about', 'title'
-        'click .addcozy'    : @addClicked 'about', 'cozy'
-        'click .addtwitter' : @addClicked 'about', 'twitter'
-        'click .addabout'   : @addClicked 'about'
-        'click .addtel'     : @addClicked 'tel'
-        'click .addemail'   : @addClicked 'email'
-        'click .addadr'     : @addClicked 'adr'
-        'click .addother'   : @addClicked 'other'
-        'click .addurl'     : @addClicked 'url'
-        'click .addskype'   : @addClicked 'other', 'skype'
-        'click #more-options': 'onMoreOptionsClicked'
-        'click #name-edit'  : 'showNameModal'
-        'click #undo'       : 'undo'
-        'click #delete'     : 'delete'
-        'change #uploader'  : 'photoChanged'
+        'click #picture'      : 'choosePhoto'
+        'click .addbirthday'  : @addClicked 'about', 'birthday'
+        'click .addorg'       : @addClicked 'about', 'company'
+        'click .addtitle'     : @addClicked 'about', 'title'
+        'click .addcozy'      : @addClicked 'about', 'cozy'
+        'click .addtwitter'   : @addClicked 'about', 'twitter'
+        'click .addabout'     : @addClicked 'about'
+        'click .addtel'       : @addClicked 'tel'
+        'click .addemail'     : @addClicked 'email'
+        'click .addadr'       : @addClicked 'adr'
+        'click .addother'     : @addClicked 'other'
+        'click .addurl'       : @addClicked 'url'
+        'click .addskype'     : @addClicked 'other', 'skype'
+        'click #more-options' : 'onMoreOptionsClicked'
+        'click #name-edit'    : 'showNameModal'
+        'click #undo'         : 'undo'
+        'click #delete'       : 'delete'
+        'change #uploader'    : 'changePhotoFromUpload'
 
-        'keyup input.value'    : 'addBelowIfEnter'
-        'keydown #notes'       : 'resizeNote'
-        'keypress #notes'      : 'resizeNote'
+        'keyup input.value'          : 'addBelowIfEnter'
+        'keydown #notes'             : 'resizeNote'
+        'keypress #notes'            : 'resizeNote'
 
-        'keyup #name'      : 'doNeedSaving'
-        'keyup #notes'     : 'doNeedSaving'
-        'keydown #name'   : 'onNameKeyPress'
-        'keydown textarea#notes': 'onNoteKeyPress'
-        'keydown .ui-widget-content': 'onTagInputKeyPress'
+        'keyup #name'                : 'doNeedSaving'
+        'keyup #notes'               : 'doNeedSaving'
+        'keydown #name'              : 'onNameKeyPress'
+        'keydown textarea#notes'     : 'onNoteKeyPress'
+        'keydown .ui-widget-content' : 'onTagInputKeyPress'
 
-        'blur #name'      : 'changeOccured'
-        'blur #notes'     : 'changeOccured'
+        'blur #name'                 : 'changeOccured'
+        'blur #notes'                : 'changeOccured'
 
     constructor: (options) ->
         options.collection = options.model.dataPoints
@@ -182,9 +182,9 @@ module.exports = class ContactView extends ViewCollection
                @collection.trigger 'change', @model
 
     choosePhoto: =>
-        new PhotoBrowser
-            model: @album
-            collection: @collection
+        new PhotoBrowser (newPhotoChosen, img, dimensions)=>
+            if newPhotoChosen
+                @changePhoto(img, dimensions)
 
 
     showNameModal: =>
@@ -257,7 +257,7 @@ module.exports = class ContactView extends ViewCollection
     resizeNiceScroll: (event) =>
         @$el.getNiceScroll().resize()
 
-    photoChanged: =>
+    changePhotoFromUpload: () =>
         file = @uploader.files[0]
 
         unless file.type.match /image\/.*/
@@ -269,29 +269,39 @@ module.exports = class ContactView extends ViewCollection
         reader.onloadend = =>
             img.src = reader.result
             img.onload = =>
-                IMAGE_DIMENSION = 600
-                ratiodim = if img.width > img.height then 'height' else 'width'
-                ratio = IMAGE_DIMENSION / img[ratiodim]
+                @changePhoto(img)
 
-                # use canvas to resize the image
-                canvas = document.createElement 'canvas'
-                canvas.height = canvas.width = IMAGE_DIMENSION
-                ctx = canvas.getContext '2d'
-                ctx.drawImage img, 0, 0, ratio*img.width, ratio*img.height
-                dataUrl =  canvas.toDataURL 'image/jpeg'
+    changePhoto:(img, dimensions)->
+        IMAGE_DIMENSION = 600
 
-                @picture.attr 'src', dataUrl
+        # use canvas to resize the image
+        canvas = document.createElement 'canvas'
+        canvas.height = canvas.width = IMAGE_DIMENSION
+        ctx = canvas.getContext '2d'
+        if dimensions?
+            d = dimensions
+            ctx.drawImage( img, d.sx, d.sy, d.sWidth,
+                           d.sHeight, 0, 0, IMAGE_DIMENSION, IMAGE_DIMENSION)
+        else
+            ratiodim = if img.width > img.height then 'height' else 'width'
+            ratio = IMAGE_DIMENSION / img[ratiodim]
+            ctx.drawImage img, 0, 0, ratio*img.width, ratio*img.height
 
-                #transform into a blob
-                binary = atob dataUrl.split(',')[1]
-                array = []
-                for i in [0..binary.length]
-                    array.push binary.charCodeAt i
 
-                blob = new Blob [new Uint8Array(array)], type: 'image/jpeg'
+        dataUrl =  canvas.toDataURL 'image/jpeg'
 
-                @model.picture = blob
-                @model.savePicture()
+        @picture.attr 'src', dataUrl
+
+        #transform into a blob
+        binary = atob dataUrl.split(',')[1]
+        array = []
+        for i in [0..binary.length]
+            array.push binary.charCodeAt i
+
+        blob = new Blob [new Uint8Array(array)], type: 'image/jpeg'
+
+        @model.picture = blob
+        @model.savePicture()
 
     onTagInputKeyPress: (event) ->
         keyCode = event.keyCode || event.which

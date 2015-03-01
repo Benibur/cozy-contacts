@@ -4,8 +4,8 @@ async = require 'async'
 fs = require 'fs'
 im = require 'imagemagick'
 onThumbCreation = require('../../init').onThumbCreation
-fileByPage = 7
-# fileByPage = 5 * 12
+# fileByPage = 7
+fileByPage = 5 * 12
 
 # Get given file, returns 404 if photo is not found.
 module.exports.fetch = (req, res, next, id) ->
@@ -103,16 +103,6 @@ resize = (raw, photo, name, callback) ->
                 photo.attachBinary options.dstPath, {name}, (err) ->
                     fs.unlink options.dstPath, ->
                         callback err
-
-
-module.exports.cropAndResize = (req, res, next) ->
-    console.log req.file
-    # write the binary of the image on the fs
-    # crop
-    # resize
-    # return image
-    res.
-    next()
 
 
 module.exports.createPhoto = (req, res, next) ->

@@ -63,9 +63,6 @@ module.exports =
         get: file.screen
     'files/:fileid/toPhoto':
         post: file.createPhoto
-    'files/:fileid/cropandresize':
-        get: file.cropAndResize
-
 
 
     'logs':

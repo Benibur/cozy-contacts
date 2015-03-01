@@ -1,34 +1,11 @@
-p.infoAboutPhoto
+div.photoContainer
 
-.photoContainer
+    button#modal-uploadBtn #{t('modal upload btn')}
 
-    //- if dates.length === 0
-    //-     p= t("photos search")
-    //- else if dates === "No photos found"
-    //-     p= t("no photos found")
-    //- else if dates === "Thumb creation"
-    //-     p= t("thumb creation")
-    //-     p #{t('progress')}: #{percent}%
-    //- else
-    //-     for date in dates
-    //-         h4 #{t(date.split('-')[1])} #{date.split('-')[0]}
-    //-         br
-    //-         for photo in photos[date]
-    //-             img(src="files/thumbs/#{photo.id}.jpg", id="#{photo.id}")
-    //-         br
-    //-     if hasPrev
-    //-         a.btn.btn-cozy.left.prev
-    //-             p &#12296 #{t('modal prev')}
-    //-     if hasNext
-    //-         a.btn.btn-cozy.right.next
-    //-             p #{t('modal next')} &#12297
-
-
-.nextPrevContainer
-    //- a.btn.btn-cozy.left.prev
-    //-     p &#12296 #{t('modal prev')}
-    a.btn.btn-cozy.right.next
-        p #{t('modal next')} &#12297
+    div
+        .thumbsContainer
+        a.btn.btn-cozy.right.next
+            p #{t('modal next')} &#12297
 
 .cropping
     table
@@ -39,4 +16,6 @@ p.infoAboutPhoto
                 td
                     div#frame-img-preview
                         img#img-preview
+
     a.chooseAgain #{t('photo-modal chooseAgain')}
+
