@@ -1,6 +1,6 @@
 Modal    = require 'cozy-clearance/modal'
 Photo    = require '../models/photo'
-template = require('../templates/photo_browser')()
+template = require('../templates/photo-picker-croper')()
 
 module.exports = class PhotoPickerCroper extends Modal
 

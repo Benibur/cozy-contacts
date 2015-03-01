@@ -4,7 +4,7 @@ TagsView = require 'views/contact_tags'
 NameModal = require 'views/contact_name_modal'
 Datapoint = require 'models/datapoint'
 request = require '../lib/request'
-PhotoBrowser = require './photo_browser'
+PhotoPickerCroper = require './photo-picker-croper'
 
 module.exports = class ContactView extends ViewCollection
 
@@ -182,7 +182,7 @@ module.exports = class ContactView extends ViewCollection
                @collection.trigger 'change', @model
 
     choosePhoto: =>
-        new PhotoBrowser (newPhotoChosen, img, dimensions)=>
+        new PhotoPickerCroper (newPhotoChosen, img, dimensions)=>
             if newPhotoChosen
                 @changePhoto(img, dimensions)
 
