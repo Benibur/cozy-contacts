@@ -23,10 +23,13 @@ module.exports = class PhotoPickerCroper extends Modal
         'click    a.next'           : 'displayMore'
         'click    a.prev'           : 'displayPrevPage'
         'click    .chooseAgain'     : 'chooseAgain'
+        'click    #modal-uploadBtn' : 'changePhotoFromUpload'
+        'change   #uploader'        : 'handleFile'
+        'blur     #uploader'        : 'uploaderBlur'
 
 
     initialize: (cb) ->
-        @cb  = cb               #will be called
+        @cb  = cb               #will be called by onYes
         @yes = t 'modal ok'
         @no  = t 'modal cancel'
         super({})
@@ -43,6 +46,7 @@ module.exports = class PhotoPickerCroper extends Modal
         @target_w          = 100 # width  of the img-preview div
         @img_naturalW      = 0   # number of pixels of the file selected
         @img_naturalH      = 0   # number of pixels of the file selected
+        @uploader          = body.querySelector('#uploader')
 
         body.classList.add('photoPickerCroper')
         @imgToCrop.addEventListener('load', @onImgToCropLoaded, false)
@@ -182,7 +186,42 @@ module.exports = class PhotoPickerCroper extends Modal
                 sWidth  : Math.round(@target_h*r)
                 sHeight : Math.round(@target_w*r)
             @close()
-            @cb(true,@imgPreview, d)
+            @cb(true,@getResultDataURL(@imgPreview, d))
+
+
+    changePhotoFromUpload: () =>
+        @uploader.click()
+
+
+    handleFile: () =>
+        file = @uploader.files[0]
+        unless file.type.match /image\/.*/
+            return alert t 'This is not an image'
+        reader = new FileReader()
+        img = new Image()
+        reader.readAsDataURL file
+        reader.onloadend = =>
+            @showCropingTool(reader.result)
+
+
+    uploaderBlur: (e) ->
+        e.stopPropagation()
+        this.focus()
+
+
+
+    getResultDataURL:(img, dimensions)->
+        IMAGE_DIMENSION = 600
+
+        # use canvas to resize the image
+        canvas = document.createElement 'canvas'
+        canvas.height = canvas.width = IMAGE_DIMENSION
+        ctx = canvas.getContext '2d'
+        if dimensions?
+            d = dimensions
+            ctx.drawImage( img, d.sx, d.sy, d.sWidth,
+                           d.sHeight, 0, 0, IMAGE_DIMENSION, IMAGE_DIMENSION)
+        return dataUrl =  canvas.toDataURL 'image/jpeg'
 
 
     closeOnEscape: (e)->
@@ -198,10 +237,10 @@ module.exports = class PhotoPickerCroper extends Modal
                 return
             else
                 return
-        else # @currentStep == 'croper'
+        else # @currentStep == 'photoPicker'
             switch e.which
                 when 27 # escape key
-                    return super(e)
+                    return super(e) # will call @cb
                 when 13 # return key
                     e.stopPropagation()
                     @onYes()
@@ -260,7 +299,7 @@ module.exports = class PhotoPickerCroper extends Modal
             else
                 hasNext = false
             @addThumbs(body.files, hasNext)
-            if @singleSelection
+            if @singleSelection and @selected_n == 0
                 @selectFirstThumb()
 
 
@@ -290,14 +329,17 @@ module.exports = class PhotoPickerCroper extends Modal
         @addPage(@.page)
 
 
-    showCropingTool:->
+    showCropingTool: (dataUrl)->
         @currentStep = 'croper'
         @currentPhotoScroll = @body.scrollTop
 
         @photoContainer.style.display = 'none'
         @croppingEl.style.display = ''
 
-        screenUrl       = "files/screens/#{@getSelectedID()}.jpg"
+        if dataUrl
+            screenUrl       = dataUrl
+        else
+            screenUrl       = "files/screens/#{@getSelectedID()}.jpg"
         @imgToCrop.src  = screenUrl
         @imgPreview.src = screenUrl
 
@@ -342,9 +384,8 @@ module.exports = class PhotoPickerCroper extends Modal
         @jcrop_api.destroy()
         @imgToCrop.removeAttribute('style')
         @imgToCrop.src = ''
-        croppingEl = @el.querySelector('.cropping')
         @photoContainer.style.display = ''
-        croppingEl.style.display = 'none'
+        @croppingEl.style.display = 'none'
         @body.scrollTop = @currentPhotoScroll
 
 

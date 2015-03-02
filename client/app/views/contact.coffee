@@ -30,7 +30,6 @@ module.exports = class ContactView extends ViewCollection
         'click #name-edit'    : 'showNameModal'
         'click #undo'         : 'undo'
         'click #delete'       : 'delete'
-        'change #uploader'    : 'changePhotoFromUpload'
 
         'keyup input.value'          : 'addBelowIfEnter'
         'keydown #notes'             : 'resizeNote'
@@ -81,7 +80,6 @@ module.exports = class ContactView extends ViewCollection
         @needSaving = false
         @namefield = @$('#name')
         @notesfield = @$('#notes')
-        @uploader = @$('#uploader')[0]
         @picture  = @$('#picture .picture')
         @tags = new TagsView
             el: @$('#tags')
@@ -182,9 +180,10 @@ module.exports = class ContactView extends ViewCollection
                @collection.trigger 'change', @model
 
     choosePhoto: =>
-        new PhotoPickerCroper (newPhotoChosen, img, dimensions)=>
+        new PhotoPickerCroper (newPhotoChosen, dataUrl)=>
             if newPhotoChosen
-                @changePhoto(img, dimensions)
+                # @changePhoto(img, dimensions)
+                @changePhoto(dataUrl)
 
 
     showNameModal: =>
@@ -257,49 +256,15 @@ module.exports = class ContactView extends ViewCollection
     resizeNiceScroll: (event) =>
         @$el.getNiceScroll().resize()
 
-    changePhotoFromUpload: () =>
-        file = @uploader.files[0]
 
-        unless file.type.match /image\/.*/
-            return alert t 'This is not an image'
-
-        reader = new FileReader()
-        img = new Image()
-        reader.readAsDataURL file
-        reader.onloadend = =>
-            img.src = reader.result
-            img.onload = =>
-                @changePhoto(img)
-
-    changePhoto:(img, dimensions)->
-        IMAGE_DIMENSION = 600
-
-        # use canvas to resize the image
-        canvas = document.createElement 'canvas'
-        canvas.height = canvas.width = IMAGE_DIMENSION
-        ctx = canvas.getContext '2d'
-        if dimensions?
-            d = dimensions
-            ctx.drawImage( img, d.sx, d.sy, d.sWidth,
-                           d.sHeight, 0, 0, IMAGE_DIMENSION, IMAGE_DIMENSION)
-        else
-            ratiodim = if img.width > img.height then 'height' else 'width'
-            ratio = IMAGE_DIMENSION / img[ratiodim]
-            ctx.drawImage img, 0, 0, ratio*img.width, ratio*img.height
-
-
-        dataUrl =  canvas.toDataURL 'image/jpeg'
-
+    changePhoto:(dataUrl)->
         @picture.attr 'src', dataUrl
-
         #transform into a blob
         binary = atob dataUrl.split(',')[1]
         array = []
         for i in [0..binary.length]
             array.push binary.charCodeAt i
-
         blob = new Blob [new Uint8Array(array)], type: 'image/jpeg'
-
         @model.picture = blob
         @model.savePicture()
 
