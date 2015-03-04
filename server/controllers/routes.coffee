@@ -57,6 +57,8 @@ module.exports =
         get: file.list
     'files/:page':
         get: file.list
+    'files/range/:skip/:limit':
+        get: file.list
     'files/thumbs/:fileid':
         get: file.thumb
     'files/screens/:fileid':

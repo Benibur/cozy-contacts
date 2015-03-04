@@ -17,13 +17,18 @@ module.exports.fetch = (req, res, next, id) ->
         req.file = file
         next()
 
-# Return a list of file for a given month
+# Returns a list of n photo (from newest to oldest )
+# skip : the number of the first photo of the view not to be returned
+# limit : the max number of photo to return
 module.exports.list = (req, res, next) ->
-
-    if req.params.page?
-        skip = parseInt(req.params.page) * fileByPage
+    if req.params.skip?
+        skip = parseInt(req.params.skip) # * fileByPage
     else
         skip = 0
+    if req.params.limit?
+        limit = parseInt(req.params.limit)
+    else
+        limit = 100
 
     [onCreation, percent] = onThumbCreation()
 
@@ -34,31 +39,18 @@ module.exports.list = (req, res, next) ->
 
         dates = {}
         options =
-            limit: fileByPage + 1
-            skip: skip
-            descending: true
+            limit      : limit
+            skip       : skip
+            descending : true
         File.imageByDate options, (err, photos) =>
             if err
                 return res.error 500, 'An error occured', err
             else
-
-                if photos.length is fileByPage + 1
+                if photos.length == limit
                     hasNext = true
                 else
                     hasNext = false
-
-                photos.splice fileByPage, 1
-                for photo in photos
-                    date = new Date(photo.lastModification)
-                    mounth = date.getMonth() + 1
-                    mounth = if mounth > 9 then "#{mounth}" else "0#{mounth}"
-                    date = "#{date.getFullYear()}-#{mounth}"
-                    if dates[date]?
-                        dates[date].push photo
-                    else
-                        dates[date] = [photo]
-
-                res.send {files: dates, hasNext: hasNext}, 200
+                res.send {files: photos, hasNext: hasNext}, 200
 
 
 # Return thumb for given file.

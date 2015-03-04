@@ -24,11 +24,8 @@ module.exports = class Photo extends Backbone.Model
     getPrevSrc: ->
         "photos/#{@get 'id'}.jpg"
 
-Photo.listFromFiles = (page, callback)->
-    client.get "files/#{page}", callback
-
-Photo.cropResizeFromFile = (fileid, attrs, callback)->
-    client.get "files/#{fileid}/cropandresize", attrs, callback
+Photo.listFromFiles = (skip, limit, callback)->
+    client.get "files/range/#{skip}/#{limit}", callback
 
 Photo.makeFromFile = (fileid, attr, callback) ->
     client.post "files/#{fileid}/toPhoto", attr, callback
