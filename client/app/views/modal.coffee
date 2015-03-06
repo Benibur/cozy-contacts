@@ -13,6 +13,8 @@ class Modal extends Backbone.View
         @no ?= options.no or 'cancel'
         @cb ?= options.cb or ->
         @render()
+        if options.cssSpaceName?
+            @el.classList.add(options.cssSpaceName)
         @saving = false
         @$el.modal 'show'
         @el.tabIndex = 0

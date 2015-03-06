@@ -6,7 +6,7 @@ module.exports = class PhotoPickerCroper extends Modal
 
     # Class attributes
 
-    id                : 'photo-picker-croper'
+    id                : 'objet-picker'
     title             : t 'pick from files'
 
     # Methods
@@ -23,41 +23,48 @@ module.exports = class PhotoPickerCroper extends Modal
 
 
     initialize: (cb) ->
-        @cb              = cb               #will be called by onYes
-        @singleSelection = true # tells if user can select one or more photo
-        @currentStep     = 'photoPicker' # 2 states : 'croper' & 'photoPicker'
-        @page            = 0  # highest page requested to the server.
-        @selected        = {} # selected.photoID = thumb = {id,name,thumbEl}
-        @selected_n      = 0  # number of photos selected
-        @skip            = 0  # rank of the oldest downloaded thumb
-        @numPerPage      = 50 # number of thumbs preloaded per request
-        @percent         = 0  # % of thumbnails computation avancement (if any)
-        @yes             = t 'modal ok'
-        @no              = t 'modal cancel'
-        super({})
-        @body            = @el.querySelector('.modal-body')
-        body             = @body
-        body.innerHTML   = template
-        @photoPicker     = body.querySelector('.photoPicker')
-        @cropperEl       = @el.querySelector('.croper')
-        @thumbsContainer = body.querySelector('.thumbsContainer') # the div containing photos
-        @imgToCrop       = @cropperEl.querySelector('#img-to-crop')
-        @imgPreview      = @cropperEl.querySelector('#img-preview')
-        @nextBtn         = body.querySelector('.next')
-        @target_h        = 100 # height of the img-preview div
-        @target_w        = 100 # width  of the img-preview div
-        @img_naturalW    = 0   # number of pixels of the file selected
-        @img_naturalH    = 0   # number of pixels of the file selected
-        @uploader        = body.querySelector('#uploader')
+
+        @config =
+            cssSpaceName    : "objet-picker"
+            singleSelection : true # tells if user can select one or more photo
+            numPerPage      : 50   # number of thumbs preloaded per request
+            yes             : t 'modal ok'
+            no              : t 'modal cancel'
+            cb              : cb   #will be called by onYes
+            target_h        : 100 # height of the img-preview div
+            target_w        : 100 # width  of the img-preview div
+        super(@config)
+
+        @state =
+            currentStep : 'photoPicker' # 2 states : 'croper' & 'photoPicker'
+            selected    : {} # selected.photoID = thumb = {id,name,thumbEl}
+            selected_n  : 0  # number of photos selected
+            skip        : 0  # rank of the oldest downloaded thumb
+            percent     : 0  # % of thumbnails computation avancement (if any)
+            img_naturalW: 0  # natural width  (px) of the selected file
+            img_naturalH: 0  # natural height (px) of the selected file
+
+        body           = @el.querySelector('.modal-body')
+        body.innerHTML = template
+
+        @body         = body
+        @photoPicker  = body.querySelector('.photoPicker')
+        @cropper$     = @el.querySelector('.croper')
+        @thumbs$      = body.querySelector('.thumbsContainer') # the div containing photos
+        @imgToCrop    = @cropper$.querySelector('#img-to-crop')
+        @imgPreview   = @cropper$.querySelector('#img-preview')
+        @nextBtn      = body.querySelector('.next')
+        @uploader     = body.querySelector('#uploader')
 
         body.classList.add('photoPickerCroper')
         @bindTabs()
-        @body.addEventListener('scroll', @handleScroll)
 
+        @body.addEventListener('scroll', @handleScroll)
         @imgToCrop.addEventListener('load', @onImgToCropLoaded, false)
-        @cropperEl.style.display = 'none'  #hide the croping area
-        @addPage(0, @numPerPage) # load the first thumbs
-        @skip +=  @numPerPage
+
+        @cropper$.style.display = 'none'
+        @addPage(0, @config.numPerPage) # load the first page of thumbs
+        @state.skip +=  @config.numPerPage
         return true
 
 
@@ -70,8 +77,8 @@ module.exports = class PhotoPickerCroper extends Modal
     validateDblClick:(e)->
         if e.target.nodeName != "IMG"
             return
-        if @singleSelection
-            if typeof @.selected[e.target.id] != 'object'
+        if @config.singleSelection
+            if typeof @state.selected[e.target.id] != 'object'
                 @toggleClicked(e.target)
             @showCropingTool()
         else
@@ -87,24 +94,24 @@ module.exports = class PhotoPickerCroper extends Modal
 
     toggleClicked: (el) ->
         id = el.id
-        if @singleSelection
+        if @config.singleSelection
             currentID = @getSelectedID()
             if currentID == id
                 return
             @toggleOne(el, id)
             # unselect other thumbs
-            for i, thumb of @.selected # thumb = {id,name,thumbEl}
+            for i, thumb of @state.selected # thumb = {id,name,thumbEl}
                 if i != id
                     if typeof(thumb) == 'object' # means thumb is selected
                         $(thumb.el).removeClass('selected')
-                        @.selected[i] = false
-                        @.selected_n -=1
+                        @state.selected[i] = false
+                        @state.selected_n -=1
         else
             @toggleOne(el, id)
 
 
     selectFirstThumb:()->
-        @toggleClicked(@thumbsContainer.firstChild)
+        @toggleClicked(@thumbs$.firstChild)
 
 
     selectNextThumb: ()->
@@ -158,25 +165,25 @@ module.exports = class PhotoPickerCroper extends Modal
 
 
     toggleOne: (thumbEl, id) ->
-        if typeof(@.selected[id]) == 'object'
+        if typeof(@state.selected[id]) == 'object'
             $(thumbEl).removeClass('selected')
-            @.selected[id] = false
-            @.selected_n -=1
+            @state.selected[id] = false
+            @state.selected_n -=1
         else
             $(thumbEl).addClass('selected')
-            @.selected[id] = {id:id,name:"",el:thumbEl}
-            @.selected_n +=1
+            @state.selected[id] = {id:id,name:"",el:thumbEl}
+            @state.selected_n +=1
 
 
     getSelectedID : () ->
-        for k, val of @.selected
+        for k, val of @state.selected
             if typeof(val)=='object'
                 return k
         return null
 
 
     getSelectedThumb : () ->
-        for k, val of @.selected
+        for k, val of @state.selected
             if typeof(val)=='object'
                 return val.el
         return null
@@ -184,19 +191,19 @@ module.exports = class PhotoPickerCroper extends Modal
 
     # supercharge the modal behavour : "ok" leads to the cropping step
     onYes: ()->
-        if @currentStep == 'photoPicker'
-            if @.selected_n == 1
+        if @state.currentStep == 'photoPicker'
+            if @state.selected_n == 1
                 @showCropingTool()
             else
                 return false
         else
             s = @imgPreview.style
-            r = @img_naturalW / @imgPreview.width
+            r = @state.img_naturalW / @imgPreview.width
             d =
                 sx      : Math.round(- parseInt(s.marginLeft)*r)
                 sy      : Math.round(- parseInt(s.marginTop )*r)
-                sWidth  : Math.round(@target_h*r)
-                sHeight : Math.round(@target_w*r)
+                sWidth  : Math.round(@config.target_h*r)
+                sHeight : Math.round(@config.target_w*r)
             @close()
             @cb(true,@getResultDataURL(@imgPreview, d))
 
@@ -234,7 +241,7 @@ module.exports = class PhotoPickerCroper extends Modal
     onKeyStroke: (e)->
         # TODO : the modal class methog listening to keystrokes
         # should be named "onKeyStroke"
-        if @currentStep == 'croper'
+        if @state.currentStep == 'croper'
             if e.which is 27 # escape key => choose another photo
                 e.stopPropagation()
                 @chooseAgain()
@@ -244,7 +251,7 @@ module.exports = class PhotoPickerCroper extends Modal
                 return
             else
                 return
-        else # @currentStep == 'photoPicker'
+        else # @state.currentStep == 'photoPicker'
             switch e.which
                 when 27 # escape key
                     # esc in the pop up to choose a file to upload
@@ -288,21 +295,21 @@ module.exports = class PhotoPickerCroper extends Modal
 
         # If server is creating thumbs : then wait before to display files.
         else if body.percent?
-            @.percent = body.percent
+            @state.percent = body.percent
             pathToSocketIO = \
                 "#{window.location.pathname.substring(1)}socket.io"
             socket = io.connect window.location.origin,
                 resource: pathToSocketIO
             socket.on 'progress', (event) =>
-                @.percent = event.percent
-                if @.percent is 100
+                @state.percent = event.percent
+                if @state.percent is 100
                     # TODO
                 else
                     # TODO
 
         # If there is no photos in Cozy
         else if files? and Object.keys(files).length is 0
-            @thumbsContainer.innerHTML = "<p>#{t 'no image'}</p>"
+            @thumbs$.innerHTML = "<p>#{t 'no image'}</p>"
 
         # there are some images, add thumbs to modal
         else
@@ -311,7 +318,7 @@ module.exports = class PhotoPickerCroper extends Modal
             else
                 hasNext = false
             @addThumbs(body.files, hasNext)
-            if @singleSelection and @selected_n == 0
+            if @config.singleSelection and @state.selected_n == 0
                 @selectFirstThumb()
 
 
@@ -332,22 +339,21 @@ module.exports = class PhotoPickerCroper extends Modal
             img.id    = "#{p.id}"
             img.title = "#{p.name}"
             frag.appendChild(img)
-        @thumbsContainer.appendChild(frag)
+        @thumbs$.appendChild(frag)
 
 
     displayMore: ->
         # Display next page of photo
-        @addPage(@skip, @numPerPage)
-        @skip +=  @numPerPage
-
+        @addPage(@state.skip, @config.numPerPage)
+        @state.skip +=  @config.numPerPage
 
 
     showCropingTool: (dataUrl)->
-        @currentStep = 'croper'
+        @state.currentStep = 'croper'
         @currentPhotoScroll = @body.scrollTop
 
         @photoPicker.style.display = 'none'
-        @cropperEl.style.display = ''
+        @cropper$.style.display = ''
 
         if dataUrl
             screenUrl       = dataUrl
@@ -362,8 +368,8 @@ module.exports = class PhotoPickerCroper extends Modal
         img_h  = @imgToCrop.height
         @img_w = img_w
         @img_h = img_h
-        @img_naturalW = @imgToCrop.naturalWidth
-        @img_naturalH = @imgToCrop.naturalHeight
+        @state.img_naturalW = @imgToCrop.naturalWidth
+        @state.img_naturalH = @imgToCrop.naturalHeight
         selection_w   = Math.round(Math.min(img_h,img_w)*1)
         x = Math.round( (img_w-selection_w)/2 )
         y = Math.round( (img_h-selection_w)/2 )
@@ -376,13 +382,14 @@ module.exports = class PhotoPickerCroper extends Modal
         $(@imgToCrop).Jcrop( options, ()->
             t.jcrop_api = this
         )
+        t.jcrop_api.focus()
 
 
     updateCropedPreview: (coords) =>
-        prev_w = @img_w / coords.w * @target_w
-        prev_h = @img_h / coords.h * @target_h
-        prev_x = @target_w  / coords.w * coords.x
-        prev_y = @target_h / coords.h * coords.y
+        prev_w = @img_w / coords.w * @config.target_w
+        prev_h = @img_h / coords.h * @config.target_h
+        prev_x = @config.target_w  / coords.w * coords.x
+        prev_y = @config.target_h  / coords.h * coords.y
         s            = @imgPreview.style
         s.width      = Math.round(prev_w) + 'px'
         s.height     = Math.round(prev_h) + 'px'
@@ -392,12 +399,12 @@ module.exports = class PhotoPickerCroper extends Modal
 
 
     chooseAgain : ()->
-        @currentStep = 'photoPicker'
+        @state.currentStep = 'photoPicker'
         @jcrop_api.destroy()
         @imgToCrop.removeAttribute('style')
         @imgToCrop.src = ''
         @photoPicker.style.display = ''
-        @cropperEl.style.display = 'none'
+        @cropper$.style.display = 'none'
         @body.scrollTop = @currentPhotoScroll
 
 

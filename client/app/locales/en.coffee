@@ -75,6 +75,7 @@ module.exports =
   "modal ok"                : "OK"
   "modal cancel"            : "Cancel"
   "no image"                : "There is no image on your Cozy"
+  "ObjPicker upload btn"    : "Upload a local file"
 
 # ContactList
   "search placeholder"    : "Search…"
