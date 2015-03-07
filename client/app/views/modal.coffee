@@ -1,7 +1,7 @@
 class Modal extends Backbone.View
 
     id:'modal-dialog'
-    className:'modal fade'
+    className:'modalCY fade'
     attributes:
         'data-backdrop': "static" #prevent bs closing by backdrop
         'data-keyboard': "false"  #prevent bs closing by esc
@@ -61,14 +61,14 @@ class Modal extends Backbone.View
         close = $('<button class="close" type="button" data-dismiss="modal" aria-hidden="true">×</button>')
         title = $('<h4 class="model-title">').text @title
         head  = $('<div class="modal-header">').append close, title
-        body  = $('<div class="modal-body">').append @renderContent()
+        body  = $('<div class="modalCY-body"></div>').append @renderContent()
         yesBtn= $('<button id="modal-dialog-yes" class="btn btn-cozy">').text @yes
         foot  = $('<div class="modal-footer">').append yesBtn
         foot.prepend $('<button id="modal-dialog-no" class="btn btn-link">').text(@no) if @no
 
-        container = $('<div class="modal-content">').append head, body, foot
-        container = $('<div class="modal-dialog">').append container
-        $("body").append @$el.append container
+        # container = $('<div class="modalCY-content">').append head, body, foot
+        # container = $('<div class="modal-dialog">').append container
+        $("body").append @$el.append head, body, foot
 
     renderContent: -> @content
 

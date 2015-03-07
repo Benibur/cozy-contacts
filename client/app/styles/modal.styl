@@ -1,6 +1,42 @@
-.modal
-  width:90%
-  margin-left:-45%
+.modalCY
+    display:flex
+    flex-direction:column
+    background-color:white
+    position:absolute
+    top:25%
+    left:50%
+    transform: translateX(-50%) translateY(-50%)
+    height:80%
+    width:85%
+    max-width:100em
+    z-index:100000
+
+    .modal-footer
+        flex-shrink:0
+
+    .modal-header
+        flex-shrink:0
+
+.modalCY.fade
+    transition:opacity 0.3s linear, top 0.3s ease-out
+
+.modalCY.fade.in
+    top:50%
+
+.body
+    overflow:auto
+
+.modalCY-body
+    flex:1
+    // margin:auto
+
+.modal-header
+    background-color:white
+
+// .modal.fade.in
+//     top:0
+  // position:
+  // margin-left:-45%
   // height:75%
   // margin-top:25%
 

@@ -44,7 +44,7 @@ module.exports = class PhotoPickerCroper extends Modal
             img_naturalW: 0  # natural width  (px) of the selected file
             img_naturalH: 0  # natural height (px) of the selected file
 
-        body           = @el.querySelector('.modal-body')
+        body           = @el.querySelector('.modalCY-body')
         body.innerHTML = template
 
         @body         = body
