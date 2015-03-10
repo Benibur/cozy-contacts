@@ -6,7 +6,7 @@ module.exports = class PhotoPickerCroper extends Modal
 
     # Class attributes
 
-    id                : 'objet-picker'
+    id                : 'object-picker'
     title             : t 'pick from files'
 
     # Methods
@@ -18,14 +18,14 @@ module.exports = class PhotoPickerCroper extends Modal
         'click    a.prev'           : 'displayPrevPage'
         'click    .chooseAgain'     : 'chooseAgain'
         'click    .modal-uploadBtn' : 'changePhotoFromUpload'
-        'change   #uploader'        : 'handleFile'
+        'change   #uploader'        : 'handleUploaderChange'
         # 'scroll   .modal-body'      : 'handleScroll'
 
 
     initialize: (cb) ->
 
         @config =
-            cssSpaceName    : "objet-picker"
+            cssSpaceName    : "object-picker"
             singleSelection : true # tells if user can select one or more photo
             numPerPage      : 50   # number of thumbs preloaded per request
             yes             : t 'modal ok'
@@ -48,16 +48,17 @@ module.exports = class PhotoPickerCroper extends Modal
         body.innerHTML = template
 
         @body         = body
-        @photoPicker  = body.querySelector('.photoPicker')
-        @cropper$     = @el.querySelector('.croper')
+        @photoPicker  = body.querySelector('.objectPickerCont')
+        @cropper$     = @el.querySelector('.croperCont')
         @thumbs$      = body.querySelector('.thumbsContainer') # the div containing photos
         @imgToCrop    = @cropper$.querySelector('#img-to-crop')
         @imgPreview   = @cropper$.querySelector('#img-preview')
         @nextBtn      = body.querySelector('.next')
         @uploader     = body.querySelector('#uploader')
 
-        body.classList.add('photoPickerCroper')
         @bindTabs()
+        @bindFileDropZone()
+        @setupURL()
 
         @body.addEventListener('scroll', @handleScroll)
         @imgToCrop.addEventListener('load', @onImgToCropLoaded, false)
@@ -66,6 +67,81 @@ module.exports = class PhotoPickerCroper extends Modal
         @addPage(0, @config.numPerPage) # load the first page of thumbs
         @state.skip +=  @config.numPerPage
         return true
+
+
+    setupURL: ()->
+        img   = @body.querySelector('.url-preview')
+        btn   = @body.querySelector('.modal-url-input-btn')
+        input = @body.querySelector('.modal-url-input')
+        urlRegexp = /\b(https?|ftp|file):\/\/[\-A-Z0-9+&@#\/%?=~_|$!:,.;]*[A-Z0-9+&@#\/%=~_|$]/i
+        imgTmp = new Image()
+
+        imgTmp.onerror =  () ->
+            img.style.backgroundImage = ""
+
+        imgTmp.onload =  () ->
+            img.style.maxWidth  = imgTmp.naturalWidth  + "px"
+            img.style.maxHeight = imgTmp.naturalHeight + "px"
+            img.parentElement.style.display = 'flex'
+            img.style.backgroundImage = 'url(' + imgTmp.src + ')'
+
+        preloadImage = (src) ->
+            imgTmp.src = src
+
+        input.addEventListener('input',(e)->
+            newurl = input.value
+            if urlRegexp.test(newurl)
+                # console.log 'url valide  : ' + newurl
+                preloadImage(newurl)
+            else
+                # console.log 'url invalide  : ' + newurl
+                img.style.backgroundImage = ""
+        ,false)
+
+
+    bindFileDropZone: ()->
+        dropbox = @photoPicker.querySelector(".modal-file-drop-zone>div")
+        print = (e)->
+            console.log e.target
+            console.log e.currentTarget
+        hasEnteredText = false
+        dropbox.addEventListener("dragenter", (e)->
+            console.log 'dragenter'
+            print(e)
+            e.stopPropagation()
+            e.preventDefault()
+            # if e.target.parentElement == dropbox
+            #     hasEnteredText = true
+            # else
+            #     hasEnteredText = false
+            dropbox.classList.add('dragging')
+
+        ,false)
+        dropbox.addEventListener("dragleave", (e)->
+            console.log 'dragleave '
+            print(e)
+
+            e.stopPropagation()
+            e.preventDefault()
+            dropbox.classList.remove('dragging')
+            # if !hasEnteredText
+
+            # if e.target.parentElement == dropbox
+            #     hasEnteredText = false
+        , false)
+        dragenter = (e)->
+          e.stopPropagation()
+          e.preventDefault()
+        dragover = dragenter
+        drop = (e) =>
+          e.stopPropagation()
+          e.preventDefault()
+          dt = e.dataTransfer
+          files = dt.files
+          @handleFile(files[0])
+
+        dropbox.addEventListener("dragover", dragover, false);
+        dropbox.addEventListener("drop", drop, false);
 
 
     handleScroll: (e) =>
@@ -213,8 +289,12 @@ module.exports = class PhotoPickerCroper extends Modal
         @uploader.click()
 
 
-    handleFile: () =>
+    handleUploaderChange: () =>
         file = @uploader.files[0]
+        handleFile(file)
+
+
+    handleFile: (file) =>
         unless file.type.match /image\/.*/
             return alert t 'This is not an image'
         reader = new FileReader()

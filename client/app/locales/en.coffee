@@ -68,6 +68,7 @@ module.exports =
   "placeholder suffix"    : "III"
   "full name"             : "Full name"
   "save"                  : "Save"
+  "more thumbs"           : "More photos"
 
 # photo modal
   "pick from files"         : "Choose one photo"
@@ -76,6 +77,7 @@ module.exports =
   "modal cancel"            : "Cancel"
   "no image"                : "There is no image on your Cozy"
   "ObjPicker upload btn"    : "Upload a local file"
+  "drop a file"             : "Drag & drop a file"
 
 # ContactList
   "search placeholder"    : "Search…"
