@@ -180,7 +180,7 @@ module.exports = class ContactView extends ViewCollection
                @collection.trigger 'change', @model
 
     choosePhoto: =>
-        new PhotoPickerCroper (newPhotoChosen, dataUrl)=>
+        new PhotoPickerCroper  (newPhotoChosen, dataUrl)=>
             if newPhotoChosen
                 # @changePhoto(img, dimensions)
                 @changePhoto(dataUrl)

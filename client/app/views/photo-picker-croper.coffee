@@ -19,7 +19,6 @@ module.exports = class PhotoPickerCroper extends Modal
         'click    .chooseAgain'     : 'chooseAgain'
         'click    .modal-uploadBtn' : 'changePhotoFromUpload'
         'change   #uploader'        : 'handleUploaderChange'
-        # 'scroll   .modal-body'      : 'handleScroll'
 
 
     initialize: (cb) ->
@@ -30,9 +29,10 @@ module.exports = class PhotoPickerCroper extends Modal
             numPerPage      : 50   # number of thumbs preloaded per request
             yes             : t 'modal ok'
             no              : t 'modal cancel'
-            cb              : cb   #will be called by onYes
+            cb              : cb  # will be called by onYes
             target_h        : 100 # height of the img-preview div
             target_w        : 100 # width  of the img-preview div
+
         super(@config)
 
         @state =
@@ -43,24 +43,27 @@ module.exports = class PhotoPickerCroper extends Modal
             percent     : 0  # % of thumbnails computation avancement (if any)
             img_naturalW: 0  # natural width  (px) of the selected file
             img_naturalH: 0  # natural height (px) of the selected file
+            uploadPopupOpened:false # true when the user is looking for a file on his local filesystem with the browser api.
 
         body           = @el.querySelector('.modalCY-body')
         body.innerHTML = template
 
-        @body         = body
-        @photoPicker  = body.querySelector('.objectPickerCont')
-        @cropper$     = @el.querySelector('.croperCont')
-        @thumbs$      = body.querySelector('.thumbsContainer') # the div containing photos
-        @imgToCrop    = @cropper$.querySelector('#img-to-crop')
-        @imgPreview   = @cropper$.querySelector('#img-preview')
-        @nextBtn      = body.querySelector('.next')
-        @uploader     = body.querySelector('#uploader')
+        @body             = body
+        @objectPickerCont = body.querySelector('.objectPickerCont')
+        @tablist          = body.querySelector('[role=tablist]')
+        @cropper$         = @el.querySelector('.croperCont')
+        @thumbs$          = body.querySelector('.thumbsContainer') # the div containing photos
+        @imgToCrop        = @cropper$.querySelector('#img-to-crop')
+        @imgPreview       = @cropper$.querySelector('#img-preview')
+        @nextBtn          = body.querySelector('.next')
+        @uploader         = body.querySelector('#uploader')
 
         @bindTabs()
+        @listenTabsSelection()
+        @selectDefaultTab('thumbPicker')
         @bindFileDropZone()
         @setupURL()
 
-        @body.addEventListener('scroll', @handleScroll)
         @imgToCrop.addEventListener('load', @onImgToCropLoaded, false)
 
         @cropper$.style.display = 'none'
@@ -68,6 +71,8 @@ module.exports = class PhotoPickerCroper extends Modal
         @state.skip +=  @config.numPerPage
         return true
 
+    test: (e)->
+        console.log e.type, this
 
     setupURL: ()->
         img   = @body.querySelector('.url-preview')
@@ -100,7 +105,7 @@ module.exports = class PhotoPickerCroper extends Modal
 
 
     bindFileDropZone: ()->
-        dropbox = @photoPicker.querySelector(".modal-file-drop-zone>div")
+        dropbox = @objectPickerCont.querySelector(".modal-file-drop-zone>div")
         print = (e)->
             console.log e.target
             console.log e.currentTarget
@@ -285,16 +290,19 @@ module.exports = class PhotoPickerCroper extends Modal
 
 
     changePhotoFromUpload: () =>
-        @uploadPopupOpened = true
+        @uploadPopupOpened = true # todo bja : pb : is not set to false if the user close the popup by clicking on the close button...
         @uploader.click()
+        console.log "fin changePhotoFromUpload"
 
 
     handleUploaderChange: () =>
+        console.log "fin changePhotoFromUpload"
         file = @uploader.files[0]
         handleFile(file)
 
 
     handleFile: (file) =>
+        console.log "handleFile"
         unless file.type.match /image\/.*/
             return alert t 'This is not an image'
         reader = new FileReader()
@@ -319,8 +327,7 @@ module.exports = class PhotoPickerCroper extends Modal
 
 
     onKeyStroke: (e)->
-        # TODO : the modal class methog listening to keystrokes
-        # should be named "onKeyStroke"
+        console.log 'onKeyStroke', e.which, @sourceType
         if @state.currentStep == 'croper'
             if e.which is 27 # escape key => choose another photo
                 e.stopPropagation()
@@ -332,34 +339,71 @@ module.exports = class PhotoPickerCroper extends Modal
             else
                 return
         else # @state.currentStep == 'photoPicker'
-            switch e.which
-                when 27 # escape key
-                    # esc in the pop up to choose a file to upload
-                    if @uploadPopupOpened
-                        @uploadPopupOpened = false
-                        e.stopPropagation()
-                    # esc in the normal case
-                    else
-                        return super(e) # will call @cb
-                when 13 # return key
-                    e.stopPropagation()
-                    @onYes()
-                    return
-                when 39 # right key
-                    e.stopPropagation()
-                    @selectNextThumb()
-                when 37 # left key
-                    e.stopPropagation()
-                    @selectPreviousThumb()
-                when 38 # up key
-                    e.stopPropagation()
-                    @selectThumbUp()
-                when 40 # down key
-                    e.stopPropagation()
-                    @selectThumbDown()
-                else
-                    return
+            switch @sourceType
+                when 'thumbPicker'
+                    if @thumbPickerKeyHandler(e)
+                        super(e)
+                when 'photoUpload'
+                    if @photoUploadKeyHandler(e)
+                        super(e)
+                when 'urlPhotoUpload'
+                    if @urlPhotoUploadKeyHandler(e)
+                        super(e)
         return
+
+
+    thumbPickerKeyHandler : (e)->
+        console.log 'thumbPickerKeyHandler', e.which
+        switch e.which
+            when 27 # escape key
+                return true   # will call this.cb
+            when 13 # return key
+                e.stopPropagation()
+                @onYes()
+            when 39 # right key
+                e.stopPropagation()
+                @selectNextThumb()
+            when 37 # left key
+                e.stopPropagation()
+                @selectPreviousThumb()
+            when 38 # up key
+                e.stopPropagation()
+                @selectThumbUp()
+            when 40 # down key
+                e.stopPropagation()
+                @selectThumbDown()
+            else
+                return false
+        return false
+
+
+    photoUploadKeyHandler : (e)=>
+        console.log 'photoUploadKeyHandler', e.which
+        switch e.which
+            when 27 # escape key
+                # user is looking for a file on his local fs
+                if @uploadPopupOpened
+                    @uploadPopupOpened = false
+                    e.stopPropagation()
+                # esc in the normal case
+                else
+                    return true   # will call @cb
+            else
+                return false
+        return false
+
+
+    urlPhotoUploadKeyHandler : (e)->
+        console.log 'urlPhotoUploadKeyHandler', e.which
+        switch e.which
+            when 27 # escape key
+                return true   # will call this.cb
+            when 13 # return key
+                e.stopPropagation()
+                @onYes()
+            else
+                return false
+        return false
 
 
     addPage:(skip, limit)->
@@ -432,7 +476,7 @@ module.exports = class PhotoPickerCroper extends Modal
         @state.currentStep = 'croper'
         @currentPhotoScroll = @body.scrollTop
 
-        @photoPicker.style.display = 'none'
+        @objectPickerCont.style.display = 'none'
         @cropper$.style.display = ''
 
         if dataUrl
@@ -483,15 +527,75 @@ module.exports = class PhotoPickerCroper extends Modal
         @jcrop_api.destroy()
         @imgToCrop.removeAttribute('style')
         @imgToCrop.src = ''
-        @photoPicker.style.display = ''
+        @objectPickerCont.style.display = ''
         @cropper$.style.display = 'none'
         @body.scrollTop = @currentPhotoScroll
 
 
-    bindTabs: ->
-        @$('[role=tablist]').on 'click', '[role=tab]', (event) =>
-            $panel = @$( ".#{event.target.getAttribute 'aria-controls'}" )
-            @$('[role=tabpanel]').not($panel).attr( 'aria-hidden', true )
-            $panel.attr 'aria-hidden', false
-            @$('nav [role=tab]').attr 'aria-selected', false
-            $(event.target).attr 'aria-selected', true
+
+
+    # bindTabs: ->
+    #     @$('[role=tablist]').on 'click', '[role=tab]', (event) =>
+    #         $panel = @$( ".#{event.target.getAttribute 'aria-controls'}" )
+    #         @$('[role=tabpanel]').not($panel).attr( 'aria-hidden', true )
+    #         $panel.attr 'aria-hidden', false
+    #         @$('nav [role=tab]').attr 'aria-selected', false
+    #         $(event.target).attr 'aria-selected', true
+
+    #  ------------------------------------------------
+    #  -- structure of the tablists, tabs and panels --
+    #
+    # tablists : somewhere in the dom :
+    #     div(role='tablist', aria-controls='panelsCont')
+    #       # aria-controls is the class of the element containing the tabpanels
+    #
+    #  panelsContainers : anywhere else a div with the class 'panelsCont'
+    #  containing the tabpanel (role='tabpanel', aria-hidden='false')
+    #     .panelsCont
+    #          div(role='tabpanel', aria-hidden='false')
+    #               # content
+    #           div(role='tabpanel', aria-hidden='true')
+    #               # content
+    #           ... as many tabpanels
+    #  Question : shouldn't the panelCont be designated by its ID rather than
+    #  its class ?
+    #
+    bindTabs: ()->
+        tablists = document.querySelectorAll('[role=tablist]')
+        Array.prototype.forEach.call( tablists, (tablist)->
+            panelList = tablist.getAttribute('aria-controls')
+            panelList = document.querySelector(".#{panelList}")
+            tablist.addEventListener 'click', (event) =>
+                if event.target.getAttribute('role') != 'tab'
+                    return
+                panel = event.target.getAttribute 'aria-controls'
+                panel = panelList.querySelector(".#{panel}")
+                for pan in panelList.children
+                    if pan.getAttribute('role') != 'tabpanel'
+                        continue
+                    if pan != panel
+                        pan.setAttribute('aria-hidden',true)
+                    else
+                        pan.setAttribute('aria-hidden',false)
+                        panelSelect = document.createEvent('CustomEvent')
+                        panelSelect.initCustomEvent('panelSelect',true,false)
+                        pan.dispatchEvent(panelSelect)
+                for tab in tablist.querySelectorAll('[role=tab]')
+                    if tab == event.target
+                        event.target.setAttribute('aria-selected',true)
+                    else
+                        tab.setAttribute('aria-selected', false)
+        )
+
+
+    listenTabsSelection: ()->
+        @objectPickerCont.addEventListener('panelSelect',(event)=>
+            @activateSourceType(event.target.className)
+        )
+
+    selectDefaultTab:(panelClassName)->
+        @tablist.querySelector("[aria-controls=#{panelClassName}]").click()
+
+    activateSourceType: (sourceType)->
+        @sourceType = sourceType
+
