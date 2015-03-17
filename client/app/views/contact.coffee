@@ -64,6 +64,8 @@ module.exports = class ContactView extends ViewCollection
         # the main page
         @listenTo @model, 'remove', -> window.app.router.navigate '', true
 
+        @castIntent = {}
+
     getRenderData: ->
         _.extend {}, @model.toJSON(),
             hasPicture: @model.hasPicture or false
@@ -180,11 +182,23 @@ module.exports = class ContactView extends ViewCollection
                @collection.trigger 'change', @model
 
     choosePhoto: =>
-        new ObjectPickerCroper  (newPhotoChosen, dataUrl)=>
-            if newPhotoChosen
-                # @changePhoto(img, dimensions)
-                @changePhoto(dataUrl)
+        intentID = 'mlqskdfjoi' # todo BJA : randomize
+        intent =
+            action     : 'pickObject'
+            objectType : 'singlePhoto'
+            intentID   : intentID
+        @intentHandler intentID, (answer)->
+            if answer.newPhotoChosen
+                @changePhoto(answer.dataUrl)
+        window.parent.postMessage intent, window.location.origin
 
+        # new ObjectPickerCroper  (newPhotoChosen, dataUrl)=>
+        #     if newPhotoChosen
+        #         # @changePhoto(img, dimensions)
+        #         @changePhoto(dataUrl)
+
+    intentHandler: (intentID, cb)->
+        @castIntent[intentID] = cb
 
     showNameModal: =>
         modal = new NameModal
