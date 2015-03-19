@@ -1,4 +1,5 @@
-ContactListener = require './lib/contact_listener'
+ContactListener = require 'lib/contact_listener'
+IntentManager   = require 'lib/intent_manager'
 
 module.exports =
 
@@ -44,3 +45,7 @@ module.exports =
 
 
         Backbone.history.start()
+
+        @intentManager = new IntentManager()
+
+

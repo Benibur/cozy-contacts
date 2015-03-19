@@ -1,9 +1,9 @@
-ViewCollection = require 'lib/view_collection'
-HistoryView = require 'views/history'
-TagsView = require 'views/contact_tags'
-NameModal = require 'views/contact_name_modal'
-Datapoint = require 'models/datapoint'
-request = require '../lib/request'
+ViewCollection     = require 'lib/view_collection'
+HistoryView        = require 'views/history'
+TagsView           = require 'views/contact_tags'
+NameModal          = require 'views/contact_name_modal'
+Datapoint          = require 'models/datapoint'
+request            = require '../lib/request'
 ObjectPickerCroper = require './object-picker'
 
 module.exports = class ContactView extends ViewCollection
@@ -50,21 +50,19 @@ module.exports = class ContactView extends ViewCollection
 
     initialize: ->
         super
-        @listenTo @model     , 'change' , @modelChanged
-        @listenTo @model     , 'sync'   , @onSuccess
-        @listenTo @model.history, 'add',  @resizeNiceScroll
-        @listenTo @collection, 'change' , =>
+        @listenTo @model         , 'change' , @modelChanged
+        @listenTo @model         , 'sync'   , @onSuccess
+        @listenTo @model.history , 'add'    ,  @resizeNiceScroll
+        @listenTo @collection    , 'change' , =>
             @needSaving = true
             @changeOccured()
-        @listenTo @collection, 'remove' , =>
+        @listenTo @collection    , 'remove' , =>
             @needSaving = true
             @changeOccured()
 
         # if the contact is open when it's removed, we redirect the user to
         # the main page
         @listenTo @model, 'remove', -> window.app.router.navigate '', true
-
-        @castIntent = {}
 
     getRenderData: ->
         _.extend {}, @model.toJSON(),
@@ -182,20 +180,34 @@ module.exports = class ContactView extends ViewCollection
                @collection.trigger 'change', @model
 
     choosePhoto: =>
-        intentID = 'mlqskdfjoi' # todo BJA : randomize
         intent =
-            action     : 'pickObject'
-            objectType : 'singlePhoto'
-            intentID   : intentID
-        @intentHandler intentID, (answer)->
-            if answer.newPhotoChosen
-                @changePhoto(answer.dataUrl)
-        window.parent.postMessage intent, window.location.origin
+            type  : 'pickObject'
+            params:
+                objectType : 'singlePhoto'
+                isCropped  : true
+                proportion : 1
+                maxWidth   : 10
+                minWidth   : 10
+        timeout = 10800000 # 3 hours
+        that = this
+        choosePhoto_answer = @choosePhoto_answer
+        window.app.intentManager.send('nameSpace',intent, timeout)
+        .then( choosePhoto_answer
+            ,
+            (error) ->
+                console.log 'contact : response in error : ', error
+        )
 
         # new ObjectPickerCroper  (newPhotoChosen, dataUrl)=>
         #     if newPhotoChosen
         #         # @changePhoto(img, dimensions)
         #         @changePhoto(dataUrl)
+
+    choosePhoto_answer : (message) =>
+        answer = message.data
+        console.log 'CONTACT : response: ', answer
+        if answer.newPhotoChosen
+            @changePhoto(answer.dataUrl)
 
     intentHandler: (intentID, cb)->
         @castIntent[intentID] = cb

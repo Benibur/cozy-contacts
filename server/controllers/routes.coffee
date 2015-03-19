@@ -1,7 +1,7 @@
-contact = require './contact'
-contactLog = require './contact_log'
+contact     = require './contact'
+contactLog  = require './contact_log'
 application = require './application'
-file = require './file'
+file        = require './file'
 
 module.exports =
 
