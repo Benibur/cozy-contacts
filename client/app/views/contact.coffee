@@ -179,6 +179,7 @@ module.exports = class ContactView extends ViewCollection
            success: =>
                @collection.trigger 'change', @model
 
+
     choosePhoto: =>
         intent =
             type  : 'pickObject'
@@ -198,14 +199,10 @@ module.exports = class ContactView extends ViewCollection
                 console.log 'contact : response in error : ', error
         )
 
-        # new ObjectPickerCroper  (newPhotoChosen, dataUrl)=>
-        #     if newPhotoChosen
-        #         # @changePhoto(img, dimensions)
-        #         @changePhoto(dataUrl)
 
     choosePhoto_answer : (message) =>
         answer = message.data
-        console.log 'CONTACT : response: ', answer
+        # console.log 'CONTACT : response: ', answer
         if answer.newPhotoChosen
             @changePhoto(answer.dataUrl)
 
